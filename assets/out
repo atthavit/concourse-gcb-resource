@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+
+exec 3>&1 # make stdout available as fd 3 for the result
+exec 1>&2 # redirect all output to stderr for logging
+
+set -e
+source "$(dirname "$0")/common.sh"
+source_dir=$1
+cd "$source_dir"
+
+payload=$(mktemp $TMPDIR/gcb-resource-request.XXXXXX)
+PATH=/usr/local/bin:$PATH
+
+cat > $payload <&0
+setup_gcloud "$payload"
+
+cloudbuild_path="$(jq -r '.params.cloudbuild_path // ""' < "$payload")"
+cloudbuild_content="$(jq -r '.params.cloudbuild_content // ""' < "$payload")"
+# path to flags file (https://cloud.google.com/sdk/gcloud/reference/topic/flags-file)
+flags_file="$(jq -r '.params.flags_file // ""' < "$payload")"
+flags_file_content="$(jq -r '.params.flags_file_content // ""' < "$payload")"
+# build dir
+build="$(jq -r '.params.build // ""' < "$payload")"
+
+
+if [ -z "$build" ]; then
+    echo 'must specify build'
+fi
+submitflags="$build"
+
+if [ -n "$flags_file_content" ]; then
+    flags_file=$(mktemp $TMPDIR/gcb-resource-cloudbuild.XXXXXX)
+    echo "$flags_file_content" > "$flags_file"
+    submitflags="$submitflags --flags-file=$flags_file"
+elif [ -n "$flags_file" ]; then
+    submitflags="$submitflags --flags-file=$flags_file"
+fi
+
+if [ -n "$cloudbuild_content" ]; then
+    cloudbuild_path=$(mktemp $TMPDIR/gcb-resource-cloudbuild.XXXXXX)
+    echo "$cloudbuild_content" > "$cloudbuild_path"
+    submitflags="$submitflags --config=$cloudbuild_path"
+elif [ -n "cloudbuild_path" ]; then
+    submitflags="$submitflags --config=$cloudbuild_path"
+fi
+
+echo $submitflags
+
+build_log=$(mktemp $TMPDIR/gcb-resource-submit-log.XXXXXX)
+build_metadata=$(mktemp $TMPDIR/gcb-resource-metadata.XXXXXX)
+
+gcloud builds submit $submitflags --format="json" | tee "$build_log"
+
+# get only lines after build log which are build metadata in json format
+sed '1,/^--/d' $build_log > $build_metadata
+
+build_id="$(jq -r '.id // ""' < "$build_metadata")"
+build_log_url="$(jq -r '.logUrl // ""' < "$build_metadata")"
+
+jq --arg id "$build_id" \
+   --arg log_url "$build_log_url" \
+    -n '{
+  "version": {
+    "ref": $id
+  },
+  "metadata": [
+    {"name": "id", "value": $id},
+    {"name": "log_url", "value": $log_url}
+  ]
+}' >&3
