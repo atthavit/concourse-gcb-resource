@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-
 setup_gcloud() {
     local payload
     payload=$1

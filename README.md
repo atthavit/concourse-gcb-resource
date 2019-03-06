@@ -1,13 +1,27 @@
 # Google Cloud Build Resource
 
-Submits builds to Google Cloud Build
+A Concourse resource for submitting builds to Google Cloud Build
 
 
 ## Source Configuration
 
 * `project`: *Required.* The name of the GCP  project.
 
-* `json_key`: The content of GCP key file in json format.
+* `json_key`: *Optional.* The content of GCP key file in json format.
+
+* `cloudbuild_path`: *Optional.* The path of `cloudbuild.yaml`
+
+* `cloudbuild_content`: *Optional.* The content of `cloudbuild.yaml`
+
+* `substitutions`: *Optional.*
+
+  Example:
+
+  ```yaml
+  substitutions:
+    _ABC: 123
+    _DEF: 456
+  ```
 
 
 ## Behavior
@@ -22,9 +36,9 @@ Submits builds to Google Cloud Build
 
 * `build`: *Required.* The path of a directory to build.
 
-* `cloudbuild_path`: *Optional.* The path of `cloudbuild.yaml`
+* `cloudbuild_path`: *Optional.* The path of `cloudbuild.yaml`. This has higher precedence than source configuration.
 
-* `cloudbuild_content`: *Optional.* The content of `cloudbuild.yaml`
+* `cloudbuild_content`: *Optional.* The content of `cloudbuild.yaml`. This has higher precedence than source configuration.
 
   Example:
 
@@ -46,3 +60,5 @@ Submits builds to Google Cloud Build
   flags_file_content: |
     --machine-type: n1-highcpu-8
   ```
+
+* `substitutions`: *Optional.* This has will be merged with `source.substitutions`
