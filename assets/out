@@ -14,6 +14,8 @@ PATH=/usr/local/bin:$PATH
 cat > $payload <&0
 setup_gcloud "$payload"
 
+source_cloudbuild_path="$(jq -r '.source.cloudbuild_path // ""' < "$payload")"
+source_cloudbuild_content="$(jq -r '.source.cloudbuild_content // ""' < "$payload")"
 cloudbuild_path="$(jq -r '.params.cloudbuild_path // ""' < "$payload")"
 cloudbuild_content="$(jq -r '.params.cloudbuild_content // ""' < "$payload")"
 # path to flags file (https://cloud.google.com/sdk/gcloud/reference/topic/flags-file)
@@ -37,14 +39,24 @@ elif [ -n "$flags_file" ]; then
 fi
 
 if [ -n "$cloudbuild_content" ]; then
+    echodebug "use cloudbuild.yaml from params.cloudbuild_content"
     cloudbuild_path=$(mktemp $TMPDIR/gcb-resource-cloudbuild.XXXXXX)
     echo "$cloudbuild_content" > "$cloudbuild_path"
     submitflags="$submitflags --config=$cloudbuild_path"
-elif [ -n "cloudbuild_path" ]; then
+elif [ -n "$cloudbuild_path" ]; then
+    echodebug "use cloudbuild.yaml from params.cloudbuild_path"
     submitflags="$submitflags --config=$cloudbuild_path"
+elif [ -n "$source_cloudbuild_content" ]; then
+    echodebug "use cloudbuild.yaml from source.cloudbuild_content"
+    cloudbuild_path=$(mktemp $TMPDIR/gcb-resource-cloudbuild.XXXXXX)
+    echo "$source_cloudbuild_content" > "$cloudbuild_path"
+    submitflags="$submitflags --config=$cloudbuild_path"
+elif [ -n "$source_cloudbuild_path" ]; then
+    echodebug "use cloudbuild.yaml from source.cloudbuild_path"
+    submitflags="$submitflags --config=$source_cloudbuild_path"
 fi
 
-echo $submitflags
+echodebug "flags: $submitflags"
 
 build_log=$(mktemp $TMPDIR/gcb-resource-submit-log.XXXXXX)
 build_metadata=$(mktemp $TMPDIR/gcb-resource-metadata.XXXXXX)

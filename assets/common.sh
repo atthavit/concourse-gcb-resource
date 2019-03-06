@@ -15,3 +15,7 @@ setup_gcloud() {
     fi
     gcloud config set project "$project"
 }
+
+echodebug() {
+    echo -e "\e[01;36m$*\e[0m"
+}
